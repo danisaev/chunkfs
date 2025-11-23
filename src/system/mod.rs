@@ -242,7 +242,7 @@ where
     /// otherwise it returns [`ErrorKind::InvalidInput`][io::ErrorKind::InvalidInput].
     ///
     /// For more info check [`Scrub`][Scrub] trait and its [`scrub`][Scrub::scrub] method.
-    pub fn scrub(&mut self) -> io::Result<ScrubMeasurements> {
+    pub fn scrub(&mut self) -> io::Result<ScrubMeasurements<Hash>> {
         self.storage.scrub()
     }
 
