@@ -58,7 +58,7 @@ where
     /// We should be able to iterate over the `database` to process all chunks we had stored before.
     /// The [IntoIterator] trait should be implemented for `database`, but it should not be a big concern, because the only structure that should be implemented
     /// for the algorithm is the scrubber itself. `database` should be considered a given entity, along with the `target_map`.
-    fn scrub<'a>(&mut self, database: &mut B, target_map: &mut T) -> io::Result<ScrubMeasurements<Hash>>
+    fn scrub<'a>(&mut self, database: &mut B, target_map: &mut T) -> io::Result<ScrubMeasurements>
     where
         Hash: 'a,
         Key: 'a;
@@ -70,7 +70,7 @@ where
 /// time spent on scrubbing,
 /// the amount of data left untouched and clustering.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct ScrubMeasurements<Hash: ChunkHash> {
+pub struct ScrubMeasurements {
     /// How much data was processed by the scrubber (in bytes).
     pub processed_data: usize,
     /// Time spent on scrubbing.
@@ -84,42 +84,44 @@ pub struct ScrubMeasurements<Hash: ChunkHash> {
     /// 4. Distance to the parent vertex.
     /// 5. Distance between clusters (between parent vertices).
     /// 6. Deduplication coefficient for each cluster.
-    pub clusterization_report: ClusteringMeasurements<Hash>,
+    pub clusterization_report: ClusteringMeasurements,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct ClusteringMeasurements<Hash: ChunkHash> {
+pub struct ClusteringMeasurements {
     /// Number of vertices (chunks).
     total_cluster_size: usize,
     /// Total number of parent vertices.
     number_of_clusters: usize,
     /// The number of vertices within a single cluster.
     /// It contains the hash values of the parent vertices as keys.
-    number_of_vertices_in_cluster: HashMap<Hash, usize>,
+    number_of_vertices_in_cluster: HashMap<u32, usize>,
     /// Distance to the parent vertex.
     /// It contains the hash values of the parent vertices as keys.
-    distance_to_vertices_in_cluster: HashMap<Hash, Vec<usize>>,
+    distance_to_vertices_in_cluster: HashMap<u32, Vec<usize>>,
     /// Distance between clusters (between parent vertices).
     /// The key is the parent in the cluster. The distance is calculated to the other parents.
-    distance_to_other_clusters: HashMap<Hash, Vec<usize>>,
+    distance_to_other_clusters: HashMap<u32, Vec<usize>>,
 }
 
 pub struct CopyScrubber;
 
 pub struct DumbScrubber;
 
-impl CopyScrubber {
-    pub fn scrub<'a, Hash, B, T>(&mut self, database: &mut B, target: &mut T) -> io::Result<ScrubMeasurements<Hash>>
+impl<Hash, B, T> Scrub<Hash, B, Hash, T> for CopyScrubber
+where
+    Hash: ChunkHash,
+    B: IterableDatabase<Hash, DataContainer<Hash>>,
+    T: Database<Hash, Vec<u8>>,
+{
+    fn scrub<'a>(&mut self, database: &mut B, target: &mut T) -> io::Result<ScrubMeasurements>
     where
         Hash: 'a,
-        Hash: ChunkHash + Metric,
-        B: IterableDatabase<Hash, DataContainer<Hash>>,
-        T: Database<Hash, Vec<u8>>,
     {
-        let mut total_cluster_size = 0;
+        let mut total_cluster_size: usize = 0;
         let mut number_of_vertices_in_cluster = HashMap::new();
         let mut distance_to_other_clusters = HashMap::new();
-        let mut parent_vertices: Vec<Hash> = Vec::new();
+        let mut parent_vertices: Vec<usize> = Vec::new();
         let now = Instant::now();
         let mut processed_data = 0;
         for (hash, container) in database.iterator_mut() {
@@ -128,8 +130,8 @@ impl CopyScrubber {
                     target.insert(hash.clone(), chunk.clone())?;
                     total_cluster_size += 1;
                     processed_data += chunk.len();
-                    number_of_vertices_in_cluster.insert(hash.clone(), 1);
-                    parent_vertices.push(hash.clone());
+                    number_of_vertices_in_cluster.insert(total_cluster_size as u32, 1);
+                    parent_vertices.push(total_cluster_size);
                 }
                 Data::TargetChunk(_) => (),
             }
@@ -141,12 +143,12 @@ impl CopyScrubber {
 
             for j in 0..parent_vertices.len() {
                 if i != j {
-                    let distance = parent_vertices[i].distance(&parent_vertices[j]);
+                    let distance = parent_vertices[i].abs_diff(parent_vertices[j]);
                     distances.push(distance);
                 }
             }
 
-            distance_to_other_clusters.insert(parent_vertices[i].clone(), distances);
+            distance_to_other_clusters.insert(parent_vertices[i] as u32, distances);
         }
 
         let running_time = now.elapsed();
@@ -174,23 +176,12 @@ where
     B: IterableDatabase<Hash, DataContainer<Key>>,
     T: Database<Key, Vec<u8>>,
 {
-    fn scrub<'a>(&mut self, _database: &mut B, _target: &mut T) -> io::Result<ScrubMeasurements<Hash>>
+    fn scrub<'a>(&mut self, _database: &mut B, _target: &mut T) -> io::Result<ScrubMeasurements>
     where
         Hash: 'a,
         Key: 'a,
     {
         Ok(ScrubMeasurements::default())
-    }
-}
-
-pub trait Metric<T = Self> {
-    /// Calculates the distance between `self` and `other'.
-    fn distance(&self, other: &T) -> usize;
-}
-
-impl Metric for Vec<u8> {
-    fn distance(&self, other: &Self) -> usize {
-        self.len().abs_diff(other.len())
     }
 }
 

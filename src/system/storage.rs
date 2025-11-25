@@ -177,7 +177,7 @@ where
         }
     }
 
-    pub fn scrub(&mut self) -> io::Result<ScrubMeasurements<Hash>> {
+    pub fn scrub(&mut self) -> io::Result<ScrubMeasurements> {
         self.scrubber
             .as_mut()
             .ok_or_else(|| {
