@@ -103,7 +103,7 @@ pub struct ClusteringMeasurements {
     /// The key is the parent in the cluster. The distance is calculated to the other parents.
     pub distance_to_other_clusters: HashMap<u32, Vec<usize>>,
     /// Deduplication coefficient for each cluster.
-    pub cluster_dedup_ratio: HashMap<u32, f64>
+    pub cluster_dedup_ratio: HashMap<u32, f64>,
 }
 
 pub struct CopyScrubber;
@@ -214,10 +214,7 @@ mod tests {
         let test_data_len = test_data.len();
         for (hash, chunk) in test_data {
             total_data_size += chunk.len();
-            database.insert(
-                hash.clone(),
-                DataContainer::from(chunk),
-            );
+            database.insert(hash.clone(), DataContainer::from(chunk));
         }
 
         let mut target_map: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
@@ -231,10 +228,19 @@ mod tests {
         let cluster_report = &scrub_report.clusterization_report;
         assert_eq!(cluster_report.total_cluster_size, test_data_len);
         assert_eq!(cluster_report.number_of_clusters, test_data_len);
-        assert!(cluster_report.number_of_vertices_in_cluster.values().all(|&v| v == 1));
+        assert!(cluster_report
+            .number_of_vertices_in_cluster
+            .values()
+            .all(|&v| v == 1));
         assert!(cluster_report.distance_to_vertices_in_cluster.is_empty());
-        assert!(cluster_report.distance_to_other_clusters.values().all(|v| v.len() == test_data_len - 1));
-        assert!(cluster_report.cluster_dedup_ratio.values().all(|&v| v == 0.0));
+        assert!(cluster_report
+            .distance_to_other_clusters
+            .values()
+            .all(|v| v.len() == test_data_len - 1));
+        assert!(cluster_report
+            .cluster_dedup_ratio
+            .values()
+            .all(|&v| v == 0.0));
     }
 
     #[test]
