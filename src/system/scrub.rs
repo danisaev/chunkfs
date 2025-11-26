@@ -69,7 +69,7 @@ where
 /// Contains information about the amount of data processed by the scrubber (in bytes),
 /// time spent on scrubbing,
 /// the amount of data left untouched and clustering information.
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct ScrubMeasurements {
     /// How much data was processed by the scrubber (in bytes).
     pub processed_data: usize,
@@ -87,7 +87,7 @@ pub struct ScrubMeasurements {
     pub clusterization_report: ClusteringMeasurements,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct ClusteringMeasurements {
     /// Number of vertices (chunks).
     pub total_cluster_size: usize,
@@ -102,12 +102,13 @@ pub struct ClusteringMeasurements {
     /// Distance between clusters (between parent vertices).
     /// The key is the parent in the cluster. The distance is calculated to the other parents.
     pub distance_to_other_clusters: HashMap<u32, Vec<usize>>,
+    /// Deduplication coefficient for each cluster.
+    pub cluster_dedup_ratio: HashMap<u32, f64>
 }
 
 pub struct CopyScrubber;
 
 pub struct DumbScrubber;
-
 impl<Hash, B, T> Scrub<Hash, B, Hash, T> for CopyScrubber
 where
     Hash: ChunkHash,
@@ -122,6 +123,7 @@ where
         let mut number_of_vertices_in_cluster = HashMap::new();
         let mut distance_to_other_clusters = HashMap::new();
         let mut parent_vertices: Vec<usize> = Vec::new();
+        let cluster_dedup_ratio = HashMap::new();
         let now = Instant::now();
         let mut processed_data = 0;
 
@@ -161,6 +163,7 @@ where
             number_of_vertices_in_cluster,
             distance_to_vertices_in_cluster,
             distance_to_other_clusters,
+            cluster_dedup_ratio,
         };
         Ok(ScrubMeasurements {
             processed_data,
@@ -231,6 +234,7 @@ mod tests {
         assert!(cluster_report.number_of_vertices_in_cluster.values().all(|&v| v == 1));
         assert!(cluster_report.distance_to_vertices_in_cluster.is_empty());
         assert!(cluster_report.distance_to_other_clusters.values().all(|v| v.len() == test_data_len - 1));
+        assert!(cluster_report.cluster_dedup_ratio.values().all(|&v| v == 0.0));
     }
 
     #[test]
