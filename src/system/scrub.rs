@@ -68,7 +68,7 @@ where
 ///
 /// Contains information about the amount of data processed by the scrubber (in bytes),
 /// time spent on scrubbing,
-/// the amount of data left untouched and clustering.
+/// the amount of data left untouched and clustering information.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct ScrubMeasurements {
     /// How much data was processed by the scrubber (in bytes).
@@ -90,18 +90,18 @@ pub struct ScrubMeasurements {
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct ClusteringMeasurements {
     /// Number of vertices (chunks).
-    total_cluster_size: usize,
+    pub total_cluster_size: usize,
     /// Total number of parent vertices.
-    number_of_clusters: usize,
+    pub number_of_clusters: usize,
     /// The number of vertices within a single cluster.
     /// It contains the hash values of the parent vertices as keys.
-    number_of_vertices_in_cluster: HashMap<u32, usize>,
+    pub number_of_vertices_in_cluster: HashMap<u32, usize>,
     /// Distance to the parent vertex.
     /// It contains the hash values of the parent vertices as keys.
-    distance_to_vertices_in_cluster: HashMap<u32, Vec<usize>>,
+    pub distance_to_vertices_in_cluster: HashMap<u32, Vec<usize>>,
     /// Distance between clusters (between parent vertices).
     /// The key is the parent in the cluster. The distance is calculated to the other parents.
-    distance_to_other_clusters: HashMap<u32, Vec<usize>>,
+    pub distance_to_other_clusters: HashMap<u32, Vec<usize>>,
 }
 
 pub struct CopyScrubber;
@@ -124,6 +124,7 @@ where
         let mut parent_vertices: Vec<usize> = Vec::new();
         let now = Instant::now();
         let mut processed_data = 0;
+
         for (hash, container) in database.iterator_mut() {
             match container.extract() {
                 Data::Chunk(chunk) => {
